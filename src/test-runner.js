@@ -102,6 +102,9 @@ class TestRunner {
       // Set safe mode for traffic capture
       await this.zapClient.setMode('safe');
       
+      // Configure passive scanning based on settings
+      await this.zapClient.setPassiveScanEnabled(config.zap.passiveScan.enabled);
+      
       // Create context for Juice Shop
       await this.zapClient.createContext('JuiceShop');
       
@@ -136,18 +139,29 @@ class TestRunner {
 
   async runSecurityScan() {
     try {
-      // Start spider scan
-      let spinner = ora('Starting spider scan...').start();
-      const spiderScanId = await this.zapClient.startSpider(config.juiceShop.url);
-      
-      if (spiderScanId) {
-        spinner.text = 'Spider scan in progress...';
-        await this.zapClient.waitForSpiderCompletion(spiderScanId);
-        spinner.succeed('Spider scan completed');
+      let spiderScanId = null;
+      let activeScanId = null;
 
-        // Start active security scan
-        spinner = ora('Starting active security scan...').start();
-        const activeScanId = await this.zapClient.startActiveScan(config.juiceShop.url);
+      // Start spider scan (if enabled)
+      if (config.zap.spider.enabled) {
+        let spinner = ora('Starting spider scan...').start();
+        spiderScanId = await this.zapClient.startSpider(config.juiceShop.url);
+        
+        if (spiderScanId) {
+          spinner.text = 'Spider scan in progress...';
+          await this.zapClient.waitForSpiderCompletion(spiderScanId);
+          spinner.succeed('Spider scan completed');
+        } else {
+          spinner.warn('Spider scan could not be started, continuing with passive findings...');
+        }
+      } else {
+        this.log('Spider scan disabled in configuration, skipping...', 'info');
+      }
+
+      // Start active security scan (if enabled and spider completed or disabled)
+      if (config.zap.activeScan.enabled) {
+        let spinner = ora('Starting active security scan...').start();
+        activeScanId = await this.zapClient.startActiveScan(config.juiceShop.url);
         
         if (activeScanId) {
           spinner.text = 'Active security scan in progress (this may take several minutes)...';
@@ -157,29 +171,42 @@ class TestRunner {
           spinner.warn('Active scan could not be started, checking for existing findings...');
         }
       } else {
-        spinner.warn('Spider scan could not be started, checking for passive findings...');
+        this.log('Active scan disabled in configuration, skipping...', 'info');
       }
 
-      // Get scan results (even if scans failed, there might be passive findings)
-      spinner = ora('Retrieving scan results...').start();
-      const scanSummary = await this.zapClient.getScanSummary();
-      
-      if (scanSummary) {
-        this.results.securitySummary = {
-          totalAlerts: scanSummary.totalAlerts,
-          high: scanSummary.high,
-          medium: scanSummary.medium,
-          low: scanSummary.low,
-          informational: scanSummary.informational
-        };
-        this.results.vulnerabilities = scanSummary.alerts;
-        spinner.succeed(`Retrieved ${scanSummary.totalAlerts} security findings`);
-      } else {
-        spinner.warn('No scan results available - this may be due to proxy configuration or scan failures');
-        // Add some mock findings for demo purposes if no real findings
-        if (this.results.vulnerabilities.length === 0) {
-          this.addMockFindings();
+      // Get scan results (passive findings - if enabled)
+      if (config.zap.passiveScan.enabled) {
+        let spinner = ora('Retrieving passive scan results...').start();
+        const scanSummary = await this.zapClient.getScanSummary();
+        
+        if (scanSummary) {
+          this.results.securitySummary = {
+            totalAlerts: scanSummary.totalAlerts,
+            high: scanSummary.high,
+            medium: scanSummary.medium,
+            low: scanSummary.low,
+            informational: scanSummary.informational
+          };
+          this.results.vulnerabilities = scanSummary.alerts;
+          spinner.succeed(`Retrieved ${scanSummary.totalAlerts} security findings`);
+        } else {
+          spinner.warn('No scan results available - this may be due to proxy configuration or scan failures');
+          // Add some mock findings for demo purposes if no real findings
+          if (this.results.vulnerabilities.length === 0) {
+            this.addMockFindings();
+          }
         }
+      } else {
+        this.log('Passive scan disabled in configuration, skipping security analysis...', 'info');
+        // Initialize empty security summary when passive scan is disabled
+        this.results.securitySummary = {
+          totalAlerts: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          informational: 0
+        };
+        this.results.vulnerabilities = [];
       }
 
       return true;

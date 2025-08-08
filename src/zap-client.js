@@ -84,6 +84,29 @@ class ZAPClient {
     }
   }
 
+  async setPassiveScanEnabled(enabled = true) {
+    try {
+      const response = await this.makeRequest('/JSON/pscan/action/setEnabled/', { 
+        enabled: enabled.toString() 
+      });
+      this.log(`Set passive scanning: ${enabled ? 'enabled' : 'disabled'}`, 'success');
+      return response;
+    } catch (error) {
+      this.log(`Failed to set passive scan mode: ${error.message}`, 'error');
+      throw error;
+    }
+  }
+
+  async getPassiveScanStatus() {
+    try {
+      const response = await this.makeRequest('/JSON/pscan/view/scanOnlyInScope/');
+      return response;
+    } catch (error) {
+      this.log(`Failed to get passive scan status: ${error.message}`, 'error');
+      return null;
+    }
+  }
+
   async createContext(contextName = 'JuiceShop') {
     try {
       const response = await this.makeRequest('/JSON/context/action/newContext/', {
@@ -119,11 +142,13 @@ class ZAPClient {
       // First, ensure the URL is included in context
       await this.includeInContext(`${url}.*`);
       
+      // ZAP Spider API expects specific parameter names
       const response = await this.makeRequest('/JSON/spider/action/scan/', {
         url: url,
-        maxChildren: config.zap.spider.maxChildren,
-        recurse: config.zap.spider.recurse ? 'true' : 'false'
-        // Remove contextName parameter as it might be causing issues
+        maxChildren: String(config.zap.spider.maxChildren || 10),
+        recurse: config.zap.spider.recurse ? 'true' : 'false',
+        contextName: config.zap.spider.contextName || 'JuiceShop',
+        subtreeOnly: 'false'
       });
       
       const scanId = response.scan;
@@ -132,19 +157,35 @@ class ZAPClient {
     } catch (error) {
       this.log(`Failed to start spider: ${error.message}`, 'error');
       
-      // Try alternative approach without context
+      // Try minimal approach - just URL parameter
       try {
-        this.log('Attempting spider scan without context parameters...', 'info');
+        this.log('Attempting minimal spider scan with just URL...', 'info');
         const response = await this.makeRequest('/JSON/spider/action/scan/', {
-          url: url
+          url: url,
+          maxChildren: '10',
+          recurse: 'true'
         });
         
         const scanId = response.scan;
-        this.log(`Started basic spider scan (ID: ${scanId}) for: ${url}`, 'success');
+        this.log(`Started minimal spider scan (ID: ${scanId}) for: ${url}`, 'success');
         return scanId;
       } catch (altError) {
-        this.log(`Alternative spider scan also failed: ${altError.message}`, 'error');
-        throw error;
+        this.log(`Minimal spider scan also failed: ${altError.message}`, 'error');
+        
+        // Try absolutely minimal - just URL
+        try {
+          this.log('Attempting basic spider scan with URL only...', 'info');
+          const response = await this.makeRequest('/JSON/spider/action/scan/', {
+            url: url
+          });
+          
+          const scanId = response.scan;
+          this.log(`Started basic spider scan (ID: ${scanId}) for: ${url}`, 'success');
+          return scanId;
+        } catch (basicError) {
+          this.log(`All spider scan attempts failed: ${basicError.message}`, 'error');
+          return null; // Return null instead of throwing to allow framework to continue
+        }
       }
     }
   }
@@ -184,12 +225,14 @@ class ZAPClient {
 
   async startActiveScan(url, contextId = this.contextId) {
     try {
+      // ZAP Active Scan API expects specific parameter format
       const response = await this.makeRequest('/JSON/ascan/action/scan/', {
         url: url,
         recurse: config.zap.activeScan.recurse ? 'true' : 'false',
         inScopeOnly: 'false',
-        scanPolicyName: config.zap.activeScan.scanPolicyName,
-        method: config.zap.activeScan.method
+        scanPolicyName: config.zap.activeScan.scanPolicyName || 'Default Policy',
+        method: config.zap.activeScan.method || 'GET',
+        postData: ''
       });
       
       const scanId = response.scan;
@@ -198,20 +241,35 @@ class ZAPClient {
     } catch (error) {
       this.log(`Failed to start active scan: ${error.message}`, 'error');
       
-      // Try simpler active scan
+      // Try minimal active scan
       try {
-        this.log('Attempting basic active scan...', 'info');
+        this.log('Attempting minimal active scan...', 'info');
         const response = await this.makeRequest('/JSON/ascan/action/scan/', {
           url: url,
-          recurse: 'false'
+          recurse: 'false',
+          inScopeOnly: 'false'
         });
         
         const scanId = response.scan;
-        this.log(`Started basic active scan (ID: ${scanId}) for: ${url}`, 'success');
+        this.log(`Started minimal active scan (ID: ${scanId}) for: ${url}`, 'success');
         return scanId;
       } catch (altError) {
-        this.log(`Basic active scan also failed: ${altError.message}`, 'error');
-        throw error;
+        this.log(`Minimal active scan failed: ${altError.message}`, 'error');
+        
+        // Try absolutely basic active scan
+        try {
+          this.log('Attempting basic active scan with URL only...', 'info');
+          const response = await this.makeRequest('/JSON/ascan/action/scan/', {
+            url: url
+          });
+          
+          const scanId = response.scan;
+          this.log(`Started basic active scan (ID: ${scanId}) for: ${url}`, 'success');
+          return scanId;
+        } catch (basicError) {
+          this.log(`All active scan attempts failed: ${basicError.message}`, 'error');
+          return null; // Return null instead of throwing to allow framework to continue
+        }
       }
     }
   }
