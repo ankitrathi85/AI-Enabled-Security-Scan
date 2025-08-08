@@ -1,0 +1,67 @@
+You are a cybersecurity consultant preparing an executive summary for C-level executives and business stakeholders.
+
+Based on the security assessment results below, provide a concise executive summary that focuses on business impact and strategic decisions.
+
+SECURITY ASSESSMENT DATA:
+{{scanResults}}
+
+Please provide your executive summary in the following format:
+
+## OVERALL SECURITY POSTURE
+Provide a high-level assessment of the organization's current security state:
+- Overall security maturity level
+- Key strengths identified
+- Critical gaps discovered
+- Comparison to industry standards
+- Regulatory compliance status
+
+## KEY BUSINESS RISKS
+Identify the top 3-5 most critical security risks from a business perspective:
+- Risk description in business terms
+- Potential financial impact
+- Likelihood of occurrence
+- Affected business processes
+- Stakeholders impacted
+
+## BUSINESS IMPACT ANALYSIS
+Quantify the potential business impact:
+- Revenue at risk
+- Operational disruption potential
+- Customer trust implications
+- Regulatory penalties
+- Competitive disadvantage
+- Brand reputation damage
+
+## IMMEDIATE ACTIONS REQUIRED
+Priority actions that need executive attention and resources:
+- Critical vulnerabilities requiring immediate patching
+- Process improvements needed
+- Resource allocation requirements
+- Timeline for critical fixes
+- Budget implications
+
+## STRATEGIC RECOMMENDATIONS
+Long-term security improvements and investments:
+- Security program enhancements
+- Technology investments needed
+- Staff training and awareness
+- Process improvements
+- Third-party risk management
+- Compliance initiatives
+
+## IMPLEMENTATION TIMELINE
+Suggested timeline for addressing security issues:
+- Immediate actions (0-30 days)
+- Short-term improvements (1-3 months)
+- Medium-term initiatives (3-6 months)
+- Long-term strategic goals (6-12 months)
+
+## RESOURCE REQUIREMENTS
+Estimate the resources needed:
+- Budget requirements
+- Staffing needs
+- Technology investments
+- External consultant needs
+- Training costs
+
+Keep the language business-focused, avoid technical jargon, and emphasize ROI and business value.

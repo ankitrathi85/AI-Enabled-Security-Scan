@@ -1,0 +1,27 @@
+{
+  "name": "juice-shop-security-framework",
+  "version": "1.0.0",
+  "description": "AI-Enhanced Security Testing Framework for OWASP Juice Shop using Playwright and ZAP",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js",
+    "install-browsers": "npx playwright install",
+    "dev": "node index.js --dev"
+  },
+  "keywords": ["security", "testing", "owasp", "zap", "playwright", "ai", "vulnerability"],
+  "author": "Security Team",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "axios": "^1.6.0",
+    "fs-extra": "^11.1.1",
+    "handlebars": "^4.7.8",
+    "openai": "^4.20.1",
+    "dotenv": "^16.3.1",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  }
+}
