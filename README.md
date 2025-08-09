@@ -20,6 +20,133 @@ A comprehensive security testing framework that combines **Playwright**, **OWASP
 
 ## 🚀 Quick Start
 
+### Prerequisites Setup
+
+#### 1. 🛡️ OWASP ZAP (Local Setup)
+ZAP is a free, open-source web application security scanner. This guide covers local installation:
+
+**Download & Install:**
+```bash
+# Download from official website:
+# https://www.zaproxy.org/download/
+
+# For macOS with Homebrew:
+brew install zap
+
+# For Ubuntu/Debian:
+sudo apt update
+sudo apt install zaproxy
+
+# For Windows: Download installer from website
+```
+
+**Start ZAP with API Access:**
+```bash
+# Option 1: Start ZAP GUI with API enabled
+zap -daemon -config api.key=YOUR_API_KEY -port 8080
+
+# Option 2: Start ZAP in daemon mode (headless)
+zap -daemon -host 0.0.0.0 -port 8080 -config api.key=YOUR_API_KEY
+
+# Option 3: Start ZAP GUI and enable API manually
+# 1. Start ZAP GUI
+# 2. Go to Tools > Options > API
+# 3. Enable API
+# 4. Set API key (optional but recommended)
+# 5. Allow insecure access (for local development)
+```
+
+**Verify ZAP is Running:**
+```bash
+# Test ZAP API access
+curl http://localhost:8080/JSON/core/view/version/
+
+# Should return: {"version":"2.xx.x"}
+```
+
+**ZAP Configuration for Framework:**
+- **Host**: `localhost`
+- **Port**: `8080` 
+- **API Access**: Enabled
+- **API Key**: Optional but recommended for security
+
+#### 2. 🤖 Ollama Setup (Local AI Models)
+Ollama allows you to run large language models locally, providing unlimited AI analysis without API costs.
+
+**Install Ollama:**
+```bash
+# macOS/Linux:
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Windows: Download from https://ollama.ai/download/windows
+
+# Or via package managers:
+# macOS:
+brew install ollama
+
+# Ubuntu/Debian:
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+**Install Recommended Models:**
+```bash
+# Install Mistral (7B) - Great for security analysis
+ollama pull mistral
+
+# Install CodeLlama (7B) - Excellent for code review and remediation
+ollama pull codellama
+
+# Install Llama2 (7B) - Good general purpose model
+ollama pull llama2
+
+# Optional: Install larger models (if you have sufficient RAM)
+# ollama pull mistral:13b    # Requires ~8GB RAM
+# ollama pull codellama:13b  # Requires ~8GB RAM
+```
+
+**Start Ollama Service:**
+```bash
+# Start Ollama service (runs on http://localhost:11434)
+ollama serve
+
+# Verify Ollama is running
+curl http://localhost:11434/api/tags
+
+# Test model inference
+ollama run mistral "Analyze this SQL injection vulnerability"
+```
+
+**Configure Framework for Ollama:**
+```bash
+# In your .env file:
+AI_ENABLED=true
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=mistral                    # or codellama, llama2
+OLLAMA_TIMEOUT=30000
+```
+
+**Model Recommendations:**
+- **mistral**: Best for vulnerability analysis and business impact assessment
+- **codellama**: Excellent for code review and remediation suggestions  
+- **llama2**: Good general-purpose model for executive summaries
+
+#### 3. 🧃 OWASP Juice Shop (Target Application)
+```bash
+# Option 1: Docker (Recommended)
+docker run --rm -p 3000:3000 bkimminich/juice-shop
+
+# Option 2: NPM Global Install
+npm install -g juice-shop
+juice-shop
+
+# Option 3: Local Development
+git clone https://github.com/juice-shop/juice-shop.git
+cd juice-shop
+npm install
+npm start
+```
+
 ### Automated Setup
 ```bash
 chmod +x setup.sh
@@ -37,7 +164,7 @@ chmod +x setup.sh
    ```bash
    cp .env.example .env
    # Edit .env and configure your settings:
-   # - Add AI API key (OpenAI/GROQ/Anthropic)
+   # - Choose AI provider (Ollama for local, or cloud providers)
    # - Configure scan options (enable/disable spider, active, passive scans)
    # - Set test scenarios (comma-separated list or comment out for all)
    ```
@@ -45,21 +172,55 @@ chmod +x setup.sh
 3. **Start Prerequisites**
    - OWASP Juice Shop: `http://localhost:3000`
    - OWASP ZAP: `http://localhost:8080` (with API enabled)
+   - Ollama (if using local AI): `http://localhost:11434`
 
 4. **Run Security Assessment**
    ```bash
-   # Full security assessment (all scans enabled)
+   # ORIGINAL APPROACH - Full security assessment (all scans enabled)
    npm test
+
+   # NEW MOCHA APPROACH - Industry-standard test framework ⭐ RECOMMENDED
+   npm run test:mocha              # Complete Mocha-based assessment
+   npm run test:mocha:auth         # Authentication tests only
+   npm run test:mocha:input        # Input validation tests (XSS, SQL injection)
+   npm run test:mocha:business     # Business logic tests (cart, access control)
+
+   # Quick specific tests (original approach)
+   npm run test:login              # Login test (3 minutes vs 50+ minutes for full scan)
+   npm run test:registration       # Registration test only
 
    # Functional tests only (no security scanning)  
    ZAP_SPIDER_ENABLED=false ZAP_ACTIVE_SCAN_ENABLED=false ZAP_PASSIVE_SCAN_ENABLED=false npm test
 
-   # Specific test scenarios only
-   TEST_SCENARIOS=login,registration npm test
-
    # Development mode with verbose logging
    LOG_LEVEL=debug npm test
    ```
+
+### 🧪 **NEW: Mocha-Based Testing Framework**
+
+The framework now includes a professional Mocha-based testing approach with better organization and reporting:
+
+```bash
+# Complete security assessment using Mocha
+npm run test:mocha
+
+# Run specific test categories
+npm run test:mocha:auth         # Authentication & session management
+npm run test:mocha:input        # XSS, SQL injection, input validation
+npm run test:mocha:business     # Cart manipulation, access control
+
+# Advanced filtering
+node mocha-runner.js --filter="XSS"
+```
+
+**Benefits of Mocha Approach:**
+- ✅ **Better test organization** - Separate files for different security domains
+- ✅ **Enhanced reporting** - HTML reports with Mochawesome
+- ✅ **Industry standard** - Uses widely adopted Mocha framework  
+- ✅ **CI/CD ready** - Standard test output formats
+- ✅ **Proper assertions** - Chai assertion library
+
+See [MOCHA-APPROACH.md](./MOCHA-APPROACH.md) for detailed documentation.
 
 ### 🎯 Common Usage Patterns
 
@@ -195,6 +356,106 @@ TEST_SCENARIOS=login,registration
 
 ## 🤖 AI Integration
 
+### Multi-Provider AI Support
+The framework supports multiple AI providers for flexibility and cost optimization:
+
+#### 🔥 Local AI with Ollama (Recommended for Development)
+**Advantages:**
+- ✅ **Unlimited Usage** - No API costs or rate limits
+- ✅ **Data Privacy** - Everything runs locally
+- ✅ **Offline Capability** - No internet required after model download
+- ✅ **Fast Response** - No network latency
+
+**Ollama Configuration:**
+```bash
+# .env configuration for Ollama
+AI_ENABLED=true
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=mistral                    # Primary model
+OLLAMA_FALLBACK_MODEL=codellama        # Fallback model
+OLLAMA_TIMEOUT=30000                   # Request timeout (30s)
+OLLAMA_MAX_TOKENS=4000                 # Max response tokens
+```
+
+**Model Performance Comparison:**
+```bash
+# Mistral (7B) - Best for vulnerability analysis
+Model: mistral
+Strengths: Security analysis, business impact, executive summaries
+RAM Required: ~4GB
+Speed: Fast
+Use Case: Primary model for comprehensive analysis
+
+# CodeLlama (7B) - Best for code review
+Model: codellama  
+Strengths: Code analysis, remediation suggestions, technical details
+RAM Required: ~4GB
+Speed: Fast
+Use Case: Code-focused security analysis
+
+# Llama2 (7B) - General purpose
+Model: llama2
+Strengths: General analysis, balanced performance
+RAM Required: ~4GB  
+Speed: Medium
+Use Case: Backup/fallback model
+```
+
+**Advanced Ollama Setup:**
+```bash
+# Install multiple models for specialized tasks
+ollama pull mistral          # Primary analysis
+ollama pull codellama       # Code review
+ollama pull llama2:13b      # Advanced analysis (requires more RAM)
+
+# Custom model configuration in config.js
+ai: {
+  provider: 'ollama',
+  ollama: {
+    baseUrl: 'http://localhost:11434',
+    models: {
+      primary: 'mistral',           // Main analysis
+      codeReview: 'codellama',      // Code-specific tasks
+      executive: 'llama2',          // Executive summaries
+    },
+    timeout: 30000,
+    maxTokens: 4000,
+    temperature: 0.7,               // Creativity vs consistency
+  }
+}
+```
+
+#### ☁️ Cloud AI Providers
+**For production or when local resources are limited:**
+
+**GROQ (Recommended Cloud Option):**
+```bash
+AI_PROVIDER=groq
+GROQ_API_KEY=gsk_your-groq-key-here
+AI_MODEL=llama3-8b-8192                # Fast inference (default)
+# AI_MODEL=llama3-70b-8192             # More capable, slower  
+# AI_MODEL=mixtral-8x7b-32768          # Excellent reasoning
+```
+
+**OpenAI:**
+```bash
+AI_PROVIDER=openai  
+OPENAI_API_KEY=sk-your-openai-key-here
+AI_MODEL=gpt-3.5-turbo                 # Cost-effective (default)
+# AI_MODEL=gpt-4                       # More capable but expensive
+# AI_MODEL=gpt-4-turbo-preview         # Latest with improved context
+```
+
+**Anthropic Claude:**
+```bash
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-anthropic-key-here  
+AI_MODEL=claude-3-sonnet-20240229      # Balanced performance (default)
+# AI_MODEL=claude-3-haiku-20240307     # Fast and affordable
+# AI_MODEL=claude-3-opus-20240229      # Most capable
+```
+
 ### Intelligent Vulnerability Analysis
 - **Business Impact Assessment** - Translates technical findings to business risks
 - **Severity Scoring** - AI-enhanced risk calculations
@@ -243,16 +504,29 @@ False Positive Likelihood: 5% (High confidence this is a real vulnerability)
 # AI Configuration
 # =============================================================================
 AI_ENABLED=true                                    # Enable/disable AI analysis
+
+# AI Provider Selection (choose one)
+AI_PROVIDER=ollama                                # Local AI: ollama, groq, openai, anthropic
+
+# Cloud AI API Keys (choose based on AI_PROVIDER)
 OPENAI_API_KEY=sk-your-openai-key-here            # OpenAI API key
 ANTHROPIC_API_KEY=your-anthropic-key-here         # Anthropic Claude API key  
 GROQ_API_KEY=gsk_your-groq-key-here              # GROQ API key
-AI_PROVIDER=groq                                   # AI provider: groq, openai, anthropic
-AI_MODEL=llama3-8b-8192                           # Model name
+
+# Cloud AI Model Configuration
+AI_MODEL=llama3-8b-8192                           # Model name for cloud providers
+
+# Ollama Configuration (for local AI)
+OLLAMA_BASE_URL=http://localhost:11434            # Ollama service URL
+OLLAMA_MODEL=mistral                              # Primary model: mistral, codellama, llama2
+OLLAMA_FALLBACK_MODEL=codellama                   # Fallback model if primary fails
+OLLAMA_TIMEOUT=30000                              # Request timeout (milliseconds)
+OLLAMA_MAX_TOKENS=4000                            # Maximum response tokens
 
 # =============================================================================
-# ZAP Configuration
+# ZAP Configuration  
 # =============================================================================
-ZAP_API_KEY=your-zap-api-key                     # ZAP API key (optional)
+ZAP_API_KEY=your-zap-api-key                     # ZAP API key (optional but recommended)
 ZAP_HOST=localhost                                # ZAP proxy host
 ZAP_PORT=8080                                     # ZAP proxy port
 
@@ -438,15 +712,104 @@ ai: {
 
 ### Common Issues
 
-**ZAP Connection Failed**
+#### 🛡️ ZAP Connection Issues
 ```bash
-# Ensure ZAP is running with API enabled
-# Start ZAP and enable API in Options > API
-# Note: ZAP API key configuration will be addressed in future updates
+# Issue: ZAP Connection Failed
+# Solution 1: Check if ZAP is running
+ps aux | grep zap
+# If not running, start ZAP:
+zap -daemon -host 0.0.0.0 -port 8080
+
+# Solution 2: Verify ZAP API access
+curl http://localhost:8080/JSON/core/view/version/
+# Should return: {"version":"2.xx.x"}
+
+# Solution 3: Enable API access in ZAP GUI
+# 1. Start ZAP GUI
+# 2. Go to Tools > Options > API  
+# 3. Enable API and allow insecure access
+# 4. Set API key and update .env file
+
+# Solution 4: Check firewall/port conflicts
+netstat -an | grep 8080
+# Make sure port 8080 is available
+```
+
+#### 🤖 Ollama Setup Issues
+```bash
+# Issue: Ollama service not running
+# Check if Ollama is running:
+ps aux | grep ollama
+curl http://localhost:11434/api/tags
+
+# Start Ollama service:
+ollama serve
+
+# Issue: Model not found
+# List installed models:
+ollama list
+
+# Install missing models:
+ollama pull mistral
+ollama pull codellama
+
+# Issue: Insufficient RAM for model
+# Check available memory:
+free -h  # Linux
+vm_stat  # macOS
+
+# Solutions:
+# 1. Use smaller models: mistral:7b instead of mistral:13b
+# 2. Close other applications to free RAM
+# 3. Use quantized models: ollama pull mistral:7b-q4_0
+
+# Issue: Slow model responses
+# Optimize Ollama performance:
+# 1. Ensure SSD storage (not HDD)
+# 2. Allocate more RAM: export OLLAMA_MAX_LOADED_MODELS=1
+# 3. Use GPU acceleration if available
+
+# Issue: Model download stuck
+# Clear Ollama cache and retry:
+rm -rf ~/.ollama/models/*
+ollama pull mistral
+```
+
+#### 🧃 Juice Shop Issues
+```bash
+# Issue: Juice Shop not accessible
+# Check if running:
+curl http://localhost:3000
+# Start Juice Shop:
+docker run --rm -p 3000:3000 bkimminich/juice-shop
+
+# Issue: Port conflicts
+# Use different port:
+docker run --rm -p 3001:3000 bkimminich/juice-shop
+# Update JUICE_SHOP_URL=http://localhost:3001 in .env
 ```
 
 **AI Analysis Disabled or Failing**
 ```bash
+# For Ollama (Local AI):
+# 1. Check Ollama service
+ollama serve &
+curl http://localhost:11434/api/tags
+
+# 2. Verify model installation
+ollama list
+ollama pull mistral  # if missing
+
+# 3. Test model directly
+ollama run mistral "Test message"
+
+# 4. Check configuration
+AI_ENABLED=true
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=mistral
+
+# For Cloud AI:
 # Check your API key configuration in .env
 OPENAI_API_KEY=sk-your-actual-openai-key-here
 # OR
@@ -512,6 +875,28 @@ LOG_LEVEL=debug npm test
 
 # Run in development mode with full visibility  
 NODE_ENV=development PLAYWRIGHT_HEADLESS=false LOG_LEVEL=debug npm test
+
+# Test individual components
+node test-setup.js           # Verify framework setup
+npm run test:login           # Test login scenario only (fast)
+npm run test:registration    # Test registration scenario only
+```
+
+### Service Verification Commands
+```bash
+# Check all services are running:
+# 1. Juice Shop
+curl http://localhost:3000
+
+# 2. ZAP API  
+curl http://localhost:8080/JSON/core/view/version/
+
+# 3. Ollama (if using local AI)
+curl http://localhost:11434/api/tags
+ollama list
+
+# 4. Test framework setup
+node test-setup.js
 ```
 
 ### Configuration Validation
@@ -522,24 +907,172 @@ node -e "console.log(require('./config/config.js'))"
 
 ## 📋 Prerequisites Checklist
 
-### Required
-- [ ] Node.js 16+ installed
-- [ ] OWASP Juice Shop running on `localhost:3000` (or custom URL in .env)
-- [ ] Playwright browsers installed (`npx playwright install chromium`)
+### ✅ Required Components
+- [ ] **Node.js 16+** installed (`node --version`)
+- [ ] **Playwright browsers** installed (`npx playwright install chromium`)
+- [ ] **OWASP Juice Shop** running on `localhost:3000` (or custom URL in .env)
 
-### Optional (based on configuration)
-- [ ] OWASP ZAP running on `localhost:8080` with API enabled (required if any ZAP scans enabled)
-- [ ] AI API key configured in `.env` file (required if `AI_ENABLED=true`)
-  - OpenAI API key (`OPENAI_API_KEY`)
-  - OR GROQ API key (`GROQ_API_KEY`) 
-  - OR Anthropic API key (`ANTHROPIC_API_KEY`)
+### 🛡️ OWASP ZAP Setup (Required for Security Scanning)
+- [ ] **ZAP Downloaded** from [zaproxy.org](https://www.zaproxy.org/download/)
+- [ ] **ZAP Running** on `localhost:8080` with API enabled
+- [ ] **API Access** configured (Tools > Options > API > Enable API)
+- [ ] **API Key** set (optional but recommended for security)
 
-### Configuration Flexibility
-- ✅ **Functional Testing Only**: No ZAP or AI required - just set all scan flags to `false`
-- ✅ **Passive Scanning**: Only requires ZAP proxy - no active scanning
-- ✅ **Custom Test Scenarios**: Run any combination of test scenarios
-- ✅ **Multiple AI Providers**: Choose between OpenAI, GROQ, or Anthropic
-- ✅ **Development Mode**: Run with visible browser and debug logging
+**Quick ZAP Setup:**
+```bash
+# Start ZAP with API enabled
+zap -daemon -host 0.0.0.0 -port 8080 -config api.key=YOUR_API_KEY
+
+# Verify ZAP is running
+curl http://localhost:8080/JSON/core/view/version/
+```
+
+### 🤖 AI Provider Setup (Optional but Recommended)
+
+#### Option A: Local AI with Ollama (Unlimited, Private, Fast)
+- [ ] **Ollama Installed** ([ollama.ai](https://ollama.ai))
+- [ ] **Ollama Service Running** (`ollama serve`)
+- [ ] **Models Downloaded**:
+  - [ ] `ollama pull mistral` (Primary model for security analysis)
+  - [ ] `ollama pull codellama` (Code review and remediation)
+  - [ ] `ollama pull llama2` (Backup/fallback model)
+
+**Quick Ollama Setup:**
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Start service
+ollama serve
+
+# Install models (choose based on your RAM)
+ollama pull mistral      # 4GB RAM - Best for security analysis
+ollama pull codellama    # 4GB RAM - Best for code remediation
+ollama pull llama2       # 4GB RAM - General purpose backup
+
+# Verify setup
+curl http://localhost:11434/api/tags
+ollama list
+```
+
+**Ollama Configuration in .env:**
+```bash
+AI_ENABLED=true
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=mistral
+```
+
+#### Option B: Cloud AI Providers (API Key Required)
+Choose one of these cloud providers:
+
+- [ ] **GROQ** (Recommended - Fast & Affordable)
+  - [ ] Account created at [console.groq.com](https://console.groq.com)
+  - [ ] API key generated and added to `.env`: `GROQ_API_KEY=gsk_...`
+
+- [ ] **OpenAI** (Most Popular)
+  - [ ] Account created at [platform.openai.com](https://platform.openai.com)
+  - [ ] API key generated and added to `.env`: `OPENAI_API_KEY=sk-...`
+
+- [ ] **Anthropic Claude** (Privacy-Focused)
+  - [ ] Account created at [console.anthropic.com](https://console.anthropic.com)
+  - [ ] API key generated and added to `.env`: `ANTHROPIC_API_KEY=...`
+
+### 📦 Framework Configuration
+- [ ] **Dependencies installed** (`npm install`)
+- [ ] **Environment file configured** (`.env` file created from `.env.example`)
+- [ ] **Test scenarios selected** (set `TEST_SCENARIOS` in `.env` or leave blank for all)
+
+### 🎯 Configuration Flexibility
+
+#### Minimal Setup (Functional Testing Only)
+**Perfect for basic testing without security scanning:**
+```bash
+# .env configuration
+AI_ENABLED=false
+ZAP_SPIDER_ENABLED=false
+ZAP_ACTIVE_SCAN_ENABLED=false
+ZAP_PASSIVE_SCAN_ENABLED=false
+
+# Only requires:
+# ✅ Node.js + Playwright 
+# ✅ Juice Shop running
+# ❌ No ZAP required
+# ❌ No AI API keys required
+```
+
+#### Security Testing Setup
+**For comprehensive security assessment:**
+```bash
+# .env configuration
+AI_ENABLED=true
+AI_PROVIDER=ollama  # or groq/openai/anthropic
+ZAP_SPIDER_ENABLED=true
+ZAP_ACTIVE_SCAN_ENABLED=true
+ZAP_PASSIVE_SCAN_ENABLED=true
+
+# Requires:
+# ✅ Node.js + Playwright
+# ✅ Juice Shop running
+# ✅ ZAP running with API enabled  
+# ✅ AI provider configured (Ollama or API key)
+```
+
+#### Specific Test Scenarios
+**For targeted testing (faster execution):**
+```bash
+# .env configuration
+TEST_SCENARIOS=login,registration  # Only run these tests
+ZAP_PASSIVE_SCAN_ENABLED=true     # Analyze test traffic
+ZAP_SPIDER_ENABLED=false          # Skip full site crawl
+ZAP_ACTIVE_SCAN_ENABLED=false     # Skip active vulnerability scan
+
+# Perfect for:
+# 🎯 Authentication testing
+# ⚡ Quick functional validation  
+# 🔄 CI/CD pipeline integration
+```
+
+### 🚀 Quick Verification Commands
+```bash
+# 1. Verify Node.js and npm
+node --version && npm --version
+
+# 2. Verify Playwright installation
+npx playwright --version
+
+# 3. Verify Juice Shop is running
+curl -s http://localhost:3000 | grep -q "OWASP Juice Shop" && echo "✅ Juice Shop OK" || echo "❌ Juice Shop not running"
+
+# 4. Verify ZAP is running (if security scanning enabled)
+curl -s http://localhost:8080/JSON/core/view/version/ | grep -q "version" && echo "✅ ZAP OK" || echo "❌ ZAP not running"
+
+# 5. Verify Ollama is running (if using local AI)
+curl -s http://localhost:11434/api/tags | grep -q "models" && echo "✅ Ollama OK" || echo "❌ Ollama not running"
+
+# 6. Test framework setup
+node test-setup.js
+
+# 7. Run quick test
+npm run test:login
+```
+
+### 💡 Recommendations
+
+**For Development/Learning:**
+- ✅ Use **Ollama** with **Mistral** model (unlimited, fast, private)
+- ✅ Start with **login scenario** only (`npm run test:login`)
+- ✅ Enable all logging (`LOG_LEVEL=debug PLAYWRIGHT_HEADLESS=false`)
+
+**For Production/CI:**
+- ✅ Use **GROQ** for reliable cloud AI (fastest, most affordable)
+- ✅ Use specific test scenarios for faster execution
+- ✅ Enable headless mode (`PLAYWRIGHT_HEADLESS=true`)
+
+**For Comprehensive Assessment:**
+- ✅ Use full ZAP scanning (spider + active + passive)
+- ✅ Run all test scenarios for maximum coverage
+- ✅ Enable AI analysis for detailed insights and remediation
 
 ## 🤝 Contributing
 

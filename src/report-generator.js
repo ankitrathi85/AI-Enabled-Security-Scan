@@ -4,6 +4,39 @@ const Handlebars = require('handlebars');
 const chalk = require('chalk');
 const config = require('../config/config');
 
+/**
+ * REPORT GENERATOR CLASS
+ * ======================
+ * 
+ * This class handles generation of comprehensive security assessment reports
+ * in multiple formats (HTML, JSON, PDF) from ZAP scan results and AI analysis.
+ * 
+ * CORE FUNCTIONALITY:
+ * - Processes raw ZAP security alerts into structured report data
+ * - Integrates AI-powered vulnerability analysis and prioritization
+ * - Generates executive summaries for management audiences
+ * - Creates detailed technical reports for security teams
+ * - Produces multiple output formats for different stakeholders
+ * 
+ * REPORT FEATURES:
+ * - Executive Summary: High-level overview with risk metrics and recommendations
+ * - Vulnerability Details: Technical details, evidence, and remediation steps
+ * - Risk Assessment: Prioritized vulnerability list with business impact
+ * - Evidence Collection: Screenshots, request/response data, and proof-of-concept
+ * - Remediation Guidance: Step-by-step fixes and security best practices
+ * 
+ * TEMPLATE SYSTEM:
+ * - Handlebars templates for flexible report customization
+ * - Responsive HTML reports with interactive elements
+ * - PDF generation for formal documentation and archival
+ * - JSON exports for integration with other security tools
+ * 
+ * AI INTEGRATION:
+ * - Leverages AI analysis for vulnerability explanations
+ * - Generates business impact assessments
+ * - Provides contextual remediation recommendations
+ * - Creates executive-level summaries and insights
+ */
 class ReportGenerator {
   constructor() {
     this.outputDir = config.reporting.outputDir;
@@ -373,7 +406,12 @@ class ReportGenerator {
             <h1>{{reportTitle}}</h1>
             <div class="subtitle">
                 Generated on {{formatDate timestamp}}
-                {{#if aiEnabled}}<span class="ai-badge">🤖 AI-Enhanced</span>{{/if}}
+                {{#if aiEnabled}}
+                    <span class="ai-badge">🤖 AI-Enhanced</span>
+                    <div style="font-size: 0.9em; margin-top: 5px;">
+                        Provider: {{aiProvider}} | Model: {{aiModel}}
+                    </div>
+                {{/if}}
             </div>
         </div>
 
@@ -443,6 +481,80 @@ class ReportGenerator {
                     <span class="metric-value">{{scanDuration}}s</span>
                 </div>
             </div>
+
+            {{#if zapConfig}}
+            <div class="card">
+                <h3>🔧 Scan Configuration</h3>
+                <div class="metric">
+                    <span>Security Tool:</span>
+                    <span class="metric-value">{{zapConfig.scanTool}} {{zapConfig.version}}</span>
+                </div>
+                <div class="metric">
+                    <span>Scan Mode:</span>
+                    <span class="metric-value">{{zapConfig.mode}}</span>
+                </div>
+                <div class="metric">
+                    <span>ZAP Host:</span>
+                    <span class="metric-value">{{zapConfig.host}}</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🕷️ Spider Configuration</h3>
+                <div class="metric">
+                    <span>Spider Enabled:</span>
+                    <span class="metric-value {{#if zapConfig.spider.enabled}}test-pass{{else}}test-fail{{/if}}">{{#if zapConfig.spider.enabled}}YES{{else}}NO{{/if}}</span>
+                </div>
+                {{#if zapConfig.spider.enabled}}
+                <div class="metric">
+                    <span>Max Depth:</span>
+                    <span class="metric-value">{{zapConfig.spider.maxDepth}}</span>
+                </div>
+                <div class="metric">
+                    <span>Max Children:</span>
+                    <span class="metric-value">{{zapConfig.spider.maxChildren}}</span>
+                </div>
+                <div class="metric">
+                    <span>Recursive:</span>
+                    <span class="metric-value">{{#if zapConfig.spider.recurse}}YES{{else}}NO{{/if}}</span>
+                </div>
+                {{/if}}
+            </div>
+
+            <div class="card">
+                <h3>⚡ Active Scan Configuration</h3>
+                <div class="metric">
+                    <span>Active Scan:</span>
+                    <span class="metric-value {{#if zapConfig.activeScan.enabled}}test-pass{{else}}test-fail{{/if}}">{{#if zapConfig.activeScan.enabled}}ENABLED{{else}}DISABLED{{/if}}</span>
+                </div>
+                {{#if zapConfig.activeScan.enabled}}
+                <div class="metric">
+                    <span>Scan Policy:</span>
+                    <span class="metric-value">{{zapConfig.activeScan.policy}}</span>
+                </div>
+                <div class="metric">
+                    <span>HTTP Method:</span>
+                    <span class="metric-value">{{zapConfig.activeScan.method}}</span>
+                </div>
+                <div class="metric">
+                    <span>Recursive:</span>
+                    <span class="metric-value">{{#if zapConfig.activeScan.recurse}}YES{{else}}NO{{/if}}</span>
+                </div>
+                {{/if}}
+            </div>
+
+            <div class="card">
+                <h3>👁️ Passive Scan Configuration</h3>
+                <div class="metric">
+                    <span>Passive Scan:</span>
+                    <span class="metric-value {{#if zapConfig.passiveScan.enabled}}test-pass{{else}}test-fail{{/if}}">{{#if zapConfig.passiveScan.enabled}}ENABLED{{else}}DISABLED{{/if}}</span>
+                </div>
+                <div class="metric">
+                    <span>Proxy Mode:</span>
+                    <span class="metric-value">{{zapConfig.proxy.protocol}}://{{zapConfig.proxy.host}}:{{zapConfig.proxy.port}}</span>
+                </div>
+            </div>
+            {{/if}}
         </div>
 
         {{#if aiEnabled}}
@@ -528,7 +640,7 @@ class ReportGenerator {
 
         <div class="footer">
             <p>Generated by AI-Enhanced Security Test Framework</p>
-            <p>Powered by Playwright + OWASP ZAP {{#if aiEnabled}}+ OpenAI{{/if}}</p>
+            <p>Powered by Playwright + OWASP ZAP{{#if aiEnabled}} + {{aiProvider}} ({{aiModel}}){{/if}}</p>
         </div>
     </div>
 
@@ -551,6 +663,35 @@ class ReportGenerator {
     `;
   }
 
+  /**
+   * Generates the main security assessment report in HTML format
+   * This is the primary report generation method that creates comprehensive reports
+   * 
+   * @async
+   * @param {Object} data - Report data object containing all scan results and analysis
+   * @param {Object} data.testSummary - Test execution summary with counts and duration
+   * @param {Array} data.testResults - Individual test results and outcomes
+   * @param {Object} data.securitySummary - Security vulnerability counts by severity
+   * @param {Array} data.vulnerabilities - Detailed vulnerability information
+   * @param {string} data.executiveSummary - AI-generated executive summary
+   * @param {number} data.overallRiskScore - Calculated overall security risk score
+   * @returns {Promise<string>} The file path of the generated HTML report
+   * @throws {Error} If report generation fails
+   * 
+   * @description Features:
+   * - Combines ZAP scan results with AI analysis
+   * - Creates executive and technical sections
+   * - Includes evidence, solutions, and remediation steps
+   * - Generates responsive HTML with interactive elements
+   * - Saves both HTML and JSON versions of the report
+   * 
+   * @example
+   * const reportPath = await reportGenerator.generateReport({
+   *   vulnerabilities: zapAlerts,
+   *   executiveSummary: aiSummary,
+   *   overallRiskScore: 85
+   * });
+   */
   async generateReport(data) {
     try {
       this.log('Generating security assessment report...', 'info');
@@ -564,6 +705,8 @@ class ReportGenerator {
         reportTitle: config.reporting.branding.title,
         timestamp: new Date().toISOString(),
         aiEnabled: config.ai.enabled,
+        aiProvider: config.ai.enabled ? config.ai.provider.toUpperCase() : null,
+        aiModel: config.ai.enabled ? config.ai.model : null,
         testSummary: data.testSummary || { total: 0, passed: 0, failed: 0, duration: 0 },
         testResults: data.testResults || [],
         securitySummary: data.securitySummary || { totalAlerts: 0, high: 0, medium: 0, low: 0 },
@@ -572,6 +715,33 @@ class ReportGenerator {
         overallRiskScore: data.overallRiskScore || 0,
         falsePositives: data.falsePositives || [],
         scanDuration: data.scanDuration || 0,
+        // ZAP scan configuration details
+        zapConfig: {
+          scanTool: 'OWASP ZAP',
+          version: data.zapVersion || 'Unknown',
+          mode: config.zap.mode,
+          host: `${config.zap.api.host}:${config.zap.api.port}`,
+          spider: {
+            enabled: config.zap.spider.enabled,
+            maxDepth: config.zap.spider.maxDepth,
+            maxChildren: config.zap.spider.maxChildren,
+            recurse: config.zap.spider.recurse
+          },
+          activeScan: {
+            enabled: config.zap.activeScan.enabled,
+            policy: config.zap.activeScan.scanPolicyName,
+            method: config.zap.activeScan.method,
+            recurse: config.zap.activeScan.recurse
+          },
+          passiveScan: {
+            enabled: config.zap.passiveScan.enabled
+          },
+          proxy: {
+            host: config.zap.proxy.host,
+            port: config.zap.proxy.port,
+            protocol: config.zap.proxy.protocol
+          }
+        },
         ...data
       };
       

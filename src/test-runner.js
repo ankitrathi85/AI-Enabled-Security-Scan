@@ -6,6 +6,39 @@ const TestScenarios = require('./test-scenarios');
 const AIAnalyzer = require('./ai-analyzer');
 const ReportGenerator = require('./report-generator');
 
+/**
+ * TEST RUNNER CLASS
+ * =================
+ * 
+ * This is the main orchestration class that coordinates the entire security testing workflow.
+ * It manages the integration between ZAP scanning, automated testing, AI analysis, and report generation.
+ * 
+ * WORKFLOW ORCHESTRATION:
+ * 1. Initialize all components (ZAP, browser, AI analyzer, report generator)
+ * 2. Run automated test scenarios to generate HTTP traffic
+ * 3. Execute ZAP spider and active scans for comprehensive coverage
+ * 4. Collect and analyze security vulnerabilities
+ * 5. Apply AI-powered analysis and prioritization
+ * 6. Generate comprehensive security assessment reports
+ * 
+ * COMPONENT INTEGRATION:
+ * - ZAP Client: Manages OWASP ZAP for security scanning
+ * - Test Scenarios: Executes automated tests to generate realistic traffic
+ * - AI Analyzer: Provides intelligent vulnerability analysis and insights
+ * - Report Generator: Creates comprehensive reports for multiple audiences
+ * 
+ * EXECUTION MODES:
+ * - Full Scan: Runs all test scenarios plus ZAP spider/active scans
+ * - Scenario-Specific: Runs only targeted test scenarios (faster execution)
+ * - AI-Enhanced: Includes AI analysis for vulnerability prioritization
+ * - Basic Mode: ZAP scanning without AI enhancements
+ * 
+ * OUTPUT CAPABILITIES:
+ * - Detailed HTML reports with executive summaries
+ * - JSON data exports for tool integration
+ * - Console progress tracking with color-coded status
+ * - Comprehensive vulnerability databases with evidence
+ */
 class TestRunner {
   constructor() {
     this.zapClient = new ZAPClient();
@@ -13,6 +46,7 @@ class TestRunner {
     this.aiAnalyzer = new AIAnalyzer();
     this.reportGenerator = new ReportGenerator();
     this.startTime = null;
+    this.targetScenario = null; // For running specific scenarios
     this.results = {
       testResults: [],
       testSummary: { total: 0, passed: 0, failed: 0, duration: 0 },
@@ -21,8 +55,14 @@ class TestRunner {
       executiveSummary: null,
       overallRiskScore: 0,
       falsePositives: [],
-      scanDuration: 0
+      scanDuration: 0,
+      zapVersion: null
     };
+  }
+
+  setScenario(scenario) {
+    this.targetScenario = scenario;
+    this.testScenarios.setTargetScenario(scenario);
   }
 
   log(message, type = 'info') {
@@ -69,9 +109,12 @@ class TestRunner {
 
       // Check ZAP connectivity
       const zapStatus = await this.zapClient.checkZAPStatus();
-      if (!zapStatus) {
+      if (!zapStatus.status) {
         throw new Error('ZAP is not accessible. Please ensure ZAP is running on localhost:8080');
       }
+      
+      // Store ZAP version for reporting
+      this.results.zapVersion = zapStatus.version;
 
       // Initialize test scenarios
       const testInit = await this.testScenarios.initialize();
@@ -99,8 +142,18 @@ class TestRunner {
       // Create new session
       await this.zapClient.createSession();
       
-      // Set safe mode for traffic capture
-      await this.zapClient.setMode('safe');
+      // Set ZAP mode based on configuration or active scan requirements
+      let zapMode;
+      if (config.zap.mode !== 'auto') {
+        // Use explicitly configured mode
+        zapMode = config.zap.mode;
+      } else {
+        // Auto-determine mode: Active scanning requires 'standard' or higher, passive scanning can use 'safe'
+        zapMode = config.zap.activeScan.enabled ? 'standard' : 'safe';
+      }
+      
+      await this.zapClient.setMode(zapMode);
+      this.log(`ZAP mode set to: ${zapMode} (active scan ${config.zap.activeScan.enabled ? 'enabled' : 'disabled'})`, 'info');
       
       // Configure passive scanning based on settings
       await this.zapClient.setPassiveScanEnabled(config.zap.passiveScan.enabled);
@@ -356,6 +409,35 @@ class TestRunner {
     }
   }
 
+  /**
+   * Main execution method that orchestrates the complete security testing workflow
+   * This is the primary entry point that coordinates all components for a full assessment
+   * 
+   * @async
+   * @returns {Promise<boolean>} True if the complete workflow succeeds, false if critical failures occur
+   * @throws {Error} If framework initialization or critical components fail
+   * 
+   * @description Execution Flow:
+   * 1. Framework Initialization: Sets up all components and validates configuration
+   * 2. ZAP Session Setup: Establishes proxy connection and creates scanning context
+   * 3. Test Execution: Runs automated scenarios to generate realistic HTTP traffic
+   * 4. Security Scanning: Performs ZAP spider crawling and active vulnerability scanning
+   * 5. AI Analysis: Applies machine learning for vulnerability prioritization and insights
+   * 6. Report Generation: Creates comprehensive reports in multiple formats
+   * 7. Cleanup: Properly closes all connections and browser instances
+   * 
+   * @description Resilience Features:
+   * - Continues execution even if non-critical components fail
+   * - Graceful degradation when AI analysis is unavailable
+   * - Comprehensive error logging and status reporting
+   * - Automatic cleanup on completion or failure
+   * 
+   * @example
+   * const testRunner = new TestRunner();
+   * testRunner.setScenario('login'); // Optional: run specific scenario
+   * const success = await testRunner.run();
+   * console.log(`Security assessment ${success ? 'completed' : 'failed'}`);
+   */
   async run() {
     try {
       // Initialize framework

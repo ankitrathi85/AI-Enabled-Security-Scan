@@ -1,0 +1,15 @@
+{
+  "reporter": "mochawesome",
+  "reporterOptions": {
+    "reportDir": "./reports",
+    "reportFilename": "test-results",
+    "html": true,
+    "json": true,
+    "overwrite": false,
+    "timestamp": "longDate"
+  },
+  "timeout": 60000,
+  "require": ["./tests/hooks.js"],
+  "recursive": true,
+  "spec": "tests/**/*.test.js"
+}

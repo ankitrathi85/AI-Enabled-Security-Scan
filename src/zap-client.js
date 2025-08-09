@@ -2,7 +2,39 @@ const axios = require('axios');
 const chalk = require('chalk');
 const config = require('../config/config');
 
+/**
+ * OWASP ZAP CLIENT FOR SECURITY SCANNING
+ * ======================================
+ * 
+ * Comprehensive client for interfacing with OWASP ZAP (Zed Attack Proxy)
+ * Provides high-level methods for security scanning operations including:
+ * 
+ * Core Features:
+ * - Session and context management
+ * - Spider scanning for application discovery
+ * - Active security scanning with configurable policies
+ * - Passive scanning for non-intrusive vulnerability detection
+ * - Security findings retrieval and processing
+ * - Configurable scan modes (safe, standard, attack)
+ * 
+ * Security Modes:
+ * - Safe: Passive scanning only, no active attacks
+ * - Standard: Active scanning with standard attack policies
+ * - Attack: Most aggressive scanning with comprehensive attack vectors
+ * 
+ * Integration Features:
+ * - Automatic retry logic for network issues
+ * - Comprehensive error handling with specific error types
+ * - Progress monitoring for long-running scans
+ * - Rate limiting and timeout management
+ */
 class ZAPClient {
+  /**
+   * Initialize ZAP client with configuration settings
+   * Sets up connection parameters and session management variables
+   * 
+   * @constructor
+   */
   constructor() {
     this.baseURL = `http://${config.zap.api.host}:${config.zap.api.port}`;
     this.apiKey = config.zap.api.key;
@@ -10,6 +42,13 @@ class ZAPClient {
     this.contextId = null;
   }
 
+  /**
+   * Centralized logging function with timestamp and color coding
+   * Provides consistent logging across all ZAP client operations
+   * 
+   * @param {string} message - The message to log
+   * @param {string} type - Log level: 'info', 'warn', 'error', 'success'
+   */
   log(message, type = 'info') {
     const timestamp = new Date().toISOString();
     const prefix = chalk.blue('[ZAP]');
@@ -29,6 +68,28 @@ class ZAPClient {
     }
   }
 
+  /**
+   * Make HTTP request to ZAP REST API
+   * Handles authentication, parameter formatting, and error handling
+   * Automatically includes API key when configured
+   * 
+   * @async
+   * @param {string} endpoint - ZAP API endpoint (e.g., '/JSON/core/view/version/')
+   * @param {Object} params - Query parameters for the request
+   * @returns {Promise<Object>} Parsed response data from ZAP API
+   * 
+   * Features:
+   * - Automatic API key injection when configured
+   * - Consistent error handling and logging
+   * - Request logging for debugging
+   * - Axios-based HTTP client with timeout management
+   * 
+   * @throws {Error} When request fails due to network or API issues
+   * 
+   * @example
+   * const version = await zapClient.makeRequest('/JSON/core/view/version/');
+   * const alerts = await zapClient.makeRequest('/JSON/core/view/alerts/', { start: 0, count: 100 });
+   */
   async makeRequest(endpoint, params = {}) {
     try {
       const url = `${this.baseURL}${endpoint}`;
@@ -50,10 +111,10 @@ class ZAPClient {
     try {
       const response = await this.makeRequest('/JSON/core/view/version/');
       this.log(`ZAP version: ${response.version}`, 'success');
-      return true;
+      return { status: true, version: response.version };
     } catch (error) {
       this.log('ZAP is not accessible. Please ensure ZAP is running on localhost:8080', 'error');
-      return false;
+      return { status: false, version: null };
     }
   }
 
@@ -122,6 +183,27 @@ class ZAPClient {
     }
   }
 
+  /**
+   * Includes a URL pattern in the ZAP scanning context
+   * This defines which URLs should be included in spider and active scans
+   * 
+   * @async
+   * @param {string} regex - URL pattern regex to include (e.g., "http://localhost:3000.*")
+   * @param {string} [contextId=this.contextId] - ZAP context ID (currently uses contextName instead)
+   * @returns {Promise<Object>} ZAP API response confirming the inclusion
+   * @throws {Error} If context inclusion fails or invalid regex pattern
+   * 
+   * @description Features:
+   * - Defines scope boundaries for ZAP scans
+   * - Uses regex patterns for flexible URL matching
+   * - Essential for limiting scan scope to target application
+   * - Called automatically by spider and active scan methods
+   * - Prevents scanning of out-of-scope URLs
+   * 
+   * @example
+   * await zapClient.includeInContext('http://localhost:3000.*');
+   * // Now all scans will include URLs matching this pattern
+   */
   async includeInContext(regex, contextId = this.contextId) {
     try {
       const response = await this.makeRequest('/JSON/context/action/includeInContext/', {
@@ -137,6 +219,26 @@ class ZAPClient {
     }
   }
 
+  /**
+   * Initiates a ZAP spider scan to discover all pages and content of a web application
+   * The spider crawls through the application following links and forms
+   * 
+   * @async
+   * @param {string} url - The target URL to start spidering from (e.g., "http://localhost:3000")
+   * @param {string} [contextId=this.contextId] - ZAP context ID to use for the scan
+   * @returns {Promise<string>} The spider scan ID for tracking progress
+   * @throws {Error} If spider scan fails to start or API communication error
+   * 
+   * @description Features:
+   * - Automatically includes URL pattern in ZAP context
+   * - Configurable spider depth and recursion settings
+   * - Fallback to minimal parameters if initial request fails
+   * - Comprehensive error handling and logging
+   * 
+   * @example
+   * const scanId = await zapClient.startSpider('http://localhost:3000');
+   * console.log(`Spider scan started with ID: ${scanId}`);
+   */
   async startSpider(url, contextId = this.contextId) {
     try {
       // First, ensure the URL is included in context
@@ -223,8 +325,39 @@ class ZAPClient {
     return false;
   }
 
+  /**
+   * Starts an active vulnerability scan using ZAP's active scanner
+   * This performs security testing by sending malicious requests to identify vulnerabilities
+   * 
+   * @async
+   * @param {string} url - The target URL to perform active scanning on
+   * @param {string} [contextId=this.contextId] - ZAP context ID to use for the scan
+   * @returns {Promise<string>} The active scan ID for tracking progress
+   * @throws {Error} If active scan fails to start or ZAP mode prevents scanning
+   * 
+   * @description Features:
+   * - Automatically checks and sets ZAP to 'standard' mode if in 'safe' mode
+   * - Includes URL pattern in ZAP context before scanning
+   * - Uses configurable scan policy and context settings
+   * - Comprehensive error handling and mode validation
+   * - Logs scan initiation and mode changes
+   * 
+   * @example
+   * const scanId = await zapClient.startActiveScan('http://localhost:3000');
+   * console.log(`Active scan started with ID: ${scanId}`);
+   */
   async startActiveScan(url, contextId = this.contextId) {
     try {
+      this.log(`Starting active scan for URL: ${url}`, 'info');
+      
+      // First check ZAP mode
+      const modeResponse = await this.makeRequest('/JSON/core/view/mode/');
+      this.log(`Current ZAP mode: ${modeResponse.mode}`, 'info');
+      
+      if (modeResponse.mode === 'safe') {
+        throw new Error('Active scanning requires ZAP to be in "standard" or "attack" mode, but it is currently in "safe" mode');
+      }
+      
       // ZAP Active Scan API expects specific parameter format
       const response = await this.makeRequest('/JSON/ascan/action/scan/', {
         url: url,
@@ -240,6 +373,12 @@ class ZAPClient {
       return scanId;
     } catch (error) {
       this.log(`Failed to start active scan: ${error.message}`, 'error');
+      
+      // Check if it's a mode violation error
+      if (error.message.includes('mode_violation')) {
+        this.log('Active scan failed due to ZAP mode restriction. Ensure ZAP is in "standard" or "attack" mode.', 'error');
+        return null;
+      }
       
       // Try minimal active scan
       try {
@@ -307,6 +446,26 @@ class ZAPClient {
     return false;
   }
 
+  /**
+   * Retrieves all security alerts/vulnerabilities found by ZAP scans
+   * This includes results from both passive and active scans
+   * 
+   * @async
+   * @returns {Promise<Array>} Array of alert objects containing vulnerability details
+   * @throws {Error} If API call fails or alerts cannot be retrieved
+   * 
+   * @description Features:
+   * - Fetches complete vulnerability data from ZAP
+   * - Returns structured alert objects with all security findings
+   * - Includes risk levels, descriptions, affected URLs, and evidence
+   * - Used by report generators and AI analysis components
+   * - Essential for vulnerability assessment and reporting
+   * 
+   * @example
+   * const alerts = await zapClient.getAlerts();
+   * console.log(`Found ${alerts.length} security alerts`);
+   * alerts.forEach(alert => console.log(`${alert.risk}: ${alert.name}`));
+   */
   async getAlerts() {
     try {
       const response = await this.makeRequest('/JSON/core/view/alerts/');

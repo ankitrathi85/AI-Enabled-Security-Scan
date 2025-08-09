@@ -32,15 +32,96 @@ The framework uses a secure configuration hierarchy:
 
 ### **🤖 AI Configuration**
 ```bash
-# Primary AI Provider
+# AI Provider Selection (Choose One)
+AI_PROVIDER=ollama              # 🦙 Local LLM (No API costs/limits)
+# AI_PROVIDER=groq              # ☁️  Cloud API (Fast, rate limited)  
+# AI_PROVIDER=openai            # ☁️  Cloud API (High quality, costly)
+# AI_PROVIDER=anthropic         # ☁️  Cloud API (Advanced reasoning)
+
+# API Keys (only needed for cloud providers)
 GROQ_API_KEY=your_actual_groq_key_here
 OPENAI_API_KEY=your_actual_openai_key_here
 ANTHROPIC_API_KEY=your_actual_anthropic_key_here
 
-# AI Settings
-AI_PROVIDER=groq
-AI_MODEL=llama3-8b-8192
+# 🦙 OLLAMA Configuration (Local LLM - RECOMMENDED)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_TIMEOUT=120000
+AI_MODEL=mistral               # Options: mistral, codellama, llama3
+
+# ☁️  Cloud AI Models (when not using Ollama)
+# AI_MODEL=llama3-8b-8192      # For GROQ
+# AI_MODEL=gpt-4               # For OpenAI
+
+# General AI Settings  
 AI_ENABLED=true
+AI_TEMPERATURE=0.3
+AI_TIMEOUT=30000
+```
+
+**🎯 AI Provider Comparison:**
+
+| Provider | Cost | Speed | Quality | Rate Limits | Privacy |
+|----------|------|-------|---------|-------------|---------|
+| **Ollama** | Free | Medium | High | None | Complete |
+| GROQ | Free tier | Very Fast | High | 6K tokens/min | Cloud |
+| OpenAI | Paid | Fast | Very High | Usage-based | Cloud |
+| Anthropic | Paid | Medium | Very High | Usage-based | Cloud |
+
+**🦙 Ollama Setup (Recommended for Unlimited Analysis):**
+
+1. **Install Ollama:**
+   ```bash
+   # macOS
+   brew install ollama
+   
+   # Linux  
+   curl -fsSL https://ollama.com/install.sh | sh
+   
+   # Windows
+   # Download from https://ollama.com/download
+   ```
+
+2. **Setup Models:**
+   ```bash
+   # Use our automated setup script
+   npm run setup-ollama
+   
+   # Or manual setup:
+   ollama serve
+   ollama pull mistral        # Best all-around (4.4GB)
+   ollama pull codellama      # Best for code analysis (3.8GB)
+   ollama pull llama3         # Most advanced (4.7GB)
+   ```
+
+3. **Verify Setup:**
+   ```bash
+   npm run check-ollama       # Check Ollama status and models
+   ```
+
+**🎯 Rate Limit Strategies:**
+
+| Provider | Max Vulnerabilities | Batch Size | Delay (ms) | Notes |
+|----------|-------------------|------------|------------|--------|
+| **Ollama** | 100 | 25 | 500 | No limits, fast local processing |
+| GROQ Free | 15 | 5 | 3000 | Conservative for free tier |
+| OpenAI | 50 | 20 | 1000 | Moderate usage |
+| Anthropic | 40 | 15 | 1500 | Balanced approach |
+
+**⚙️ Advanced Configuration:**
+```bash
+# For Ollama (No Rate Limits)
+AI_MAX_VULNERABILITIES=100     # Analyze all vulnerabilities
+AI_BATCH_SIZE=25               # Large batches for speed
+AI_DELAY_MS=500                # Minimal delay
+AI_TOKEN_LIMIT=50000           # High token limit
+AI_ENABLE_FALLBACK=false       # Disable fallback
+
+# For Cloud APIs (Rate Limited)  
+AI_MAX_VULNERABILITIES=15      # Conservative limit
+AI_BATCH_SIZE=5                # Small batches
+AI_DELAY_MS=3000               # Longer delays
+AI_TOKEN_LIMIT=4000            # Lower token limit
+AI_ENABLE_FALLBACK=true        # Enable rule-based fallback
 ```
 
 ### **🎯 Target Application**

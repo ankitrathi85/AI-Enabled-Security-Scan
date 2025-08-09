@@ -40,8 +40,27 @@ class TestScenarios {
     this.browser = null;
     this.page = null;
     this.results = [];
+    this.targetScenario = null; // For running specific scenarios
   }
 
+  /**
+   * Sets the target scenario for selective test execution
+   * Used when running specific test scenarios instead of all tests
+   * 
+   * @param {string} scenario - The scenario name to target (e.g., 'login', 'registration')
+   */
+  setTargetScenario(scenario) {
+    this.targetScenario = scenario;
+    this.log(`Target scenario set to: ${scenario}`, 'info');
+  }
+
+  /**
+   * Centralized logging method with color-coded output and timestamps
+   * Provides consistent formatting for test execution messages
+   * 
+   * @param {string} message - The message to log
+   * @param {string} [type='info'] - Log level: 'info', 'error', 'warn', or 'success'
+   */
   log(message, type = 'info') {
     const timestamp = new Date().toISOString();
     const prefix = chalk.green('[TEST]');
@@ -1135,10 +1154,10 @@ class TestScenarios {
   }
 
   async runAllTests() {
-    this.log('Starting all test scenarios...', 'info');
+    this.log('Starting test scenarios...', 'info');
     const startTime = Date.now();
     
-    const tests = [
+    const allTests = [
       { name: 'login', func: this.testLogin.bind(this) },
       { name: 'registration', func: this.testRegistration.bind(this) },
       { name: 'product-search', func: this.testProductSearch.bind(this) },
@@ -1146,16 +1165,33 @@ class TestScenarios {
       { name: 'admin-access', func: this.testAdminAccess.bind(this) }
     ];
     
+    // Filter tests based on target scenario or configuration
+    let testsToRun = [];
+    if (this.targetScenario) {
+      // Run only the specific scenario
+      const targetTest = allTests.find(t => t.name === this.targetScenario);
+      if (targetTest) {
+        testsToRun = [targetTest];
+        this.log(`Running specific scenario: ${this.targetScenario}`, 'info');
+      } else {
+        this.log(`Invalid scenario: ${this.targetScenario}. Available: ${allTests.map(t => t.name).join(', ')}`, 'error');
+        throw new Error(`Invalid scenario: ${this.targetScenario}`);
+      }
+    } else {
+      // Run all configured scenarios
+      testsToRun = allTests.filter(test => config.juiceShop.scenarios.includes(test.name));
+    }
+    
     const results = [];
     
-    for (const test of tests) {
-      if (config.juiceShop.scenarios.includes(test.name)) {
-        try {
-          const result = await test.func();
-          results.push({ scenario: test.name, success: result });
-        } catch (error) {
-          results.push({ scenario: test.name, success: false, error: error.message });
-        }
+    for (const test of testsToRun) {
+      try {
+        this.log(`Starting test: ${test.name}`, 'info');
+        const result = await test.func();
+        results.push({ scenario: test.name, success: result });
+      } catch (error) {
+        this.log(`Test ${test.name} failed: ${error.message}`, 'error');
+        results.push({ scenario: test.name, success: false, error: error.message });
       }
     }
     
@@ -1163,7 +1199,7 @@ class TestScenarios {
     const passCount = results.filter(r => r.success).length;
     const failCount = results.length - passCount;
     
-    this.log(`All tests completed - Pass: ${passCount}, Fail: ${failCount}, Duration: ${totalDuration}ms`, 'success');
+    this.log(`Tests completed - Pass: ${passCount}, Fail: ${failCount}, Duration: ${totalDuration}ms`, 'success');
     
     return {
       summary: { total: results.length, passed: passCount, failed: failCount, duration: totalDuration },

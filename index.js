@@ -24,12 +24,22 @@ async function main() {
   const isQuickTest = args.includes('--quick') || args.includes('-q');
   const isDev = args.includes('--dev') || args.includes('-d');
   
+  // Extract scenario parameter
+  const scenarioArg = args.find(arg => arg.startsWith('--scenario='));
+  const scenario = scenarioArg ? scenarioArg.split('=')[1] : null;
+  
   // Set development mode
   if (isDev) {
     process.env.NODE_ENV = 'development';
   }
 
   const runner = new TestRunner();
+
+  // Set specific scenario if provided
+  if (scenario) {
+    runner.setScenario(scenario);
+    console.log(chalk.yellow(`🎯 Running specific scenario: ${scenario.toUpperCase()}\n`));
+  }
 
   try {
     console.log(chalk.blue('🚀 Starting AI-Enhanced Security Assessment Framework\n'));
