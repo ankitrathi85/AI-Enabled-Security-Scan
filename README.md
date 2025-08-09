@@ -658,6 +658,27 @@ zap: {
 
 ## 📊 Sample Report Output
 
+### 🎯 Live Demo Report
+**📄 [View Sample Security Report](./docs/samples/sample-security-report.html)** - Complete HTML report showcasing the framework's comprehensive AI-enhanced security analysis capabilities.
+
+**Report Highlights:**
+- **🤖 AI-Enhanced Analysis** - Multi-provider AI integration with intelligent vulnerability assessment (limited to first 5 vulnerabilities in sample)
+- **📊 Executive Dashboard** - Risk scoring with 578 vulnerabilities analyzed (Overall Risk: 1.8/10)
+- **🔧 ZAP Integration Details** - OWASP ZAP v2.16.1 configuration and comprehensive scan results
+- **💼 Business Impact Assessment** - Technical findings translated to business context and financial implications
+- **🛠️ Actionable Remediation** - Specific fix recommendations with code examples and implementation steps
+- **🎯 False Positive Detection** - AI-powered filtering to reduce security noise
+- **📈 Executive Summary** - Business-friendly overview for stakeholder communication
+
+**What the Sample Demonstrates:**
+- Complete security assessment workflow from scan to AI analysis
+- Professional report formatting suitable for executive presentation
+- Integration of multiple security tools (ZAP + AI providers)
+- Real vulnerability analysis on OWASP Juice Shop application
+- Business risk scoring and prioritization methodology
+- **Note**: AI analysis in the sample is limited to the first 5 vulnerabilities to demonstrate capabilities while keeping the report manageable for viewing
+
+### Console Output Summary
 ```
 📊 SECURITY ASSESSMENT SUMMARY
 ═════════════════════════════
